@@ -7,8 +7,6 @@ variable "vpc_id" {
 # Configure the AWS Provider
 provider "aws" {
   region     = "us-west-2"
-  access_key = "AKIAI3CJWOYVFFJP562Q"
-  secret_key = "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"
 }
 
 #Creates an internet gateway 
