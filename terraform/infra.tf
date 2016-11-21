@@ -178,8 +178,6 @@ resource "aws_route_table_association" "private_subnet_3_rt_assoc" {
 
 
 
-
-
 #create a security group 
 resource "aws_security_group" "allow_ssh" {
   name = "allow_ssh"
@@ -188,7 +186,7 @@ resource "aws_security_group" "allow_ssh" {
   ingress {
       from_port = 22
       to_port = 22
-      protocol = "tcp"
+      protocol = "XEROX NS IDP"
       cidr_blocks = ["172.31.0.0/24"]
   }
 }
@@ -200,8 +198,130 @@ resource "aws_instance" "bastion" {
     associate_public_ip_address = true
     subnet_id = "${aws_subnet.public_subnet_1.id}"
     instance_type = "t2.micro"
+    
+   #key_name = "${var.aws_key_name}"
+    security_groups = ["${aws_security_group.allow_ssh.id}"]
     tags {
         Name = "Bastion instance "
     }
 }
 
+#Create a DB subnet
+resource "aws_db_subnet_group" "DB_subnet_group" {
+    name = "DB subnet"
+    subnet_ids = ["${aws_subnet.private_subnet_1.id}", "${aws_subnet.private_subnet_2.id}"]
+    tags {
+        Name = " DB subnet group"
+    }
+}
+
+
+ #Create maria db
+resource "aws_db_instance" "mariaDB" {
+  allocated_storage    = 5
+  engine               = "mariadb"
+  engine_version       = "10.0.24"
+  instance_class       = "db.t2.micro"
+  name                 = "Maria database"
+  username             = "master user"
+  password             = "${var.mariadb_password}"
+  multi_az             = "no"
+  storage_type         = "gp2"
+  db_subnet_group_name = "${aws_db_subnet_group.DB_subnet_group.id}"
+  vpc_security_group_ids = ["${aws_security_group.sec_grp_2.id}"]
+  tags {
+        Name = "Maria Database "
+    }
+}
+
+#a security group with port 80, port 22
+resource "aws_security_group" "sec_grp_2" {
+  name = "Second security group"
+  description = "Allows instances to access port 80 and port 22"
+
+  ingress {
+      from_port = 80
+      to_port = 80
+      protocol = "ISO-IP"
+      cidr_blocks = ["172.31.0.0/24"]
+  }
+
+  ingress {
+      from_port = 22
+      to_port = 22
+      protocol = "XEROX NS IDP"
+      cidr_blocks = ["172.31.0.0/24"]
+  }
+}
+
+# create a security group for ELB 
+resource "aws_security_group" "ELB_sec_grp" {
+  name = "ELB security group"
+  description = "Allows port 80 ingress from anywhere"
+
+  ingress {
+      from_port = 80
+      to_port = 80
+      protocol = "ISO-IP"
+      cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+# Create a new load balancer
+resource "aws_elb" "elb" {
+  name = "web_elb"
+  subnet_id = "${aws_subnet.public_subnet_2.id}"
+  subnet_id = "${aws_subnet.public_subnet_3.id}"
+  security_groups = "${aws_security_group.ELB_sec_grp.id}"
+
+  listener {
+    instance_port = 80
+    instance_protocol = "http"
+    lb_port = 80
+    lb_protocol = "http"
+  }
+
+  health_check {
+    healthy_threshold = 2
+    unhealthy_threshold = 2
+    timeout = 5
+    target = "HTTP:80/"
+    interval = 30
+  }
+
+  instances = ["${aws_instance.webserver-b.id}, ${aws_instance.webserver-c.id} "]
+  connection_draining = true
+  connection_draining_timeout = 60
+
+  tags {
+    Name = "ELB for instances created"
+  }
+}
+
+#Create a new instance to run web services(linux)
+resource "aws_instance" "webserver-b" {
+    ami = "ami-5ec1673e"
+    instance_type = "t2.micro"
+    private_ip = "${aws_subnet.private_subnet_2.id}"
+    vpc_security_group_ids = ["${aws_security_group.sec_grp_2.id}
+
+    #ey_name = "cit360"
+    tags {
+        Name = "webserver-b"
+        Service = "curriculum "
+    }
+}
+
+#Create a 2nd instance to run web services(linux)
+resource "aws_instance" "webserver-c" {
+    ami = "ami-5ec1673e"
+    instance_type = "t2.micro"
+    private_ip = "${aws_subnet.private_subnet_3.id}"
+    vpc_security_group_ids = ["${aws_security_group.sec_grp_2.id}
+
+    #ey_name = "cit360
+    tags {
+        Name = "webserver-c"
+        Service = "curriculum "
+    }
+}
