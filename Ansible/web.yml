@@ -1,28 +1,19 @@
 ---
 - hosts: web
   vars:
-    db_password: password
     server_name: curriculum
     service_name: curriculum
     service_version: 1.0
-    app_key: QujjaJs3fxwtnTl7FiqhEEn1ACkf7YZW
     app_env: test
     #change db_host to the dns name in aws
-    db_host: localhost
+    db_host: db.ctu2uhkiqqiy.us-west-2.rds.amazonaws.com
     db_database: curriculum
-    db_username: curriculum
+    db_username: user1
     db_port: 3306
     service_dir: /usr/share/nginx/{{ service_name }}
+  vars_files:
+    - vault.yml
   tasks:
-    - name: Checks for selinux in the sysconfig file 
-      become: yes
-      lineinfile: dest=/etc/sysconfig/selinux regexp="^SELINUX=" line="SELINUX=permissive"
-      #lineinfile will replace what is specified in regxp with the line data
-
-    - name: Puts SELinux in permissive mode
-      become: yes 
-      command: setenforce 0
-      #
 
     - name: Install epel
       become: yes
@@ -89,7 +80,7 @@
 
     - name: Owner of file on path is nginx
       become: yes
-      file:path={{ service_dir }} group=nginx owner=nginx state=directory recurse=yes 
+      file: path={{ service_dir }} group=nginx owner=nginx state=directory recurse=yes 
       
 
     - name: Configure service_dir enviroment of owner nginx
